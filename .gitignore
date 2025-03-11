@@ -44,4 +44,16 @@ Thumbs.db
 .idea/
 .vscode/
 *.swp
-*.swo 
+*.swo
+
+# Archivos de Vercel
+.vercel/
+.vercelignore
+vercel.json
+
+# Archivos de credenciales adicionales
+credentials_base64.txt
+vision-api-credentials.json
+
+# Archivos de uploads
+static/uploads/ 
