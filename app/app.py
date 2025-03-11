@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 import json
 import datetime
 import base64
+import requests
 
 # Cargar variables de entorno
 load_dotenv()
@@ -25,6 +26,57 @@ CORS(app)
 app.config['UPLOAD_FOLDER'] = 'static/uploads'
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max upload
 app.config['MAPS_API_KEY'] = os.environ.get('GOOGLE_MAPS_API_KEY', '')
+app.config['EXTERNAL_API_URL'] = os.environ.get('EXTERNAL_API_URL', 'http://localhost:3000/api/receive-data')
+
+# Función para enviar datos a otra aplicación
+def send_to_external_api(data):
+    """
+    Envía los datos procesados a una API externa
+    
+    Args:
+        data (dict): Datos a enviar
+        
+    Returns:
+        dict: Respuesta de la API externa o información de error
+    """
+    try:
+        app.logger.info(f"Enviando datos a API externa: {app.config['EXTERNAL_API_URL']}")
+        
+        # Realizar la solicitud POST a la API externa
+        response = requests.post(
+            app.config['EXTERNAL_API_URL'],
+            json=data,
+            headers={'Content-Type': 'application/json'},
+            timeout=10  # Timeout de 10 segundos
+        )
+        
+        # Verificar si la solicitud fue exitosa
+        if response.status_code == 200:
+            app.logger.info("Datos enviados exitosamente a la API externa")
+            return {
+                'success': True,
+                'status_code': response.status_code,
+                'response': response.json() if response.content else {}
+            }
+        else:
+            app.logger.error(f"Error al enviar datos a la API externa. Código: {response.status_code}")
+            return {
+                'success': False,
+                'status_code': response.status_code,
+                'error': response.text
+            }
+    except requests.RequestException as e:
+        app.logger.error(f"Error de conexión con la API externa: {str(e)}")
+        return {
+            'success': False,
+            'error': f"Error de conexión: {str(e)}"
+        }
+    except Exception as e:
+        app.logger.error(f"Error inesperado al enviar datos: {str(e)}")
+        return {
+            'success': False,
+            'error': f"Error inesperado: {str(e)}"
+        }
 
 # Asegurar que el directorio de uploads exista
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
@@ -346,8 +398,21 @@ def process_complete():
             'status': 'pending'
         }
         
-        # Aquí se podría implementar el envío al sistema de boletas
-        # Por ahora, solo lo incluimos en la respuesta
+        # Enviar los datos a la API externa
+        if request.form.get('send_to_external', 'false').lower() == 'true':
+            app.logger.info("Enviando datos a API externa")
+            external_api_result = send_to_external_api(ticket_data)
+            result['external_api_result'] = external_api_result
+            
+            if external_api_result['success']:
+                app.logger.info("Datos enviados exitosamente a la API externa")
+                result['external_api_success'] = True
+            else:
+                app.logger.warning(f"Error al enviar datos a la API externa: {external_api_result.get('error', 'Error desconocido')}")
+                result['external_api_success'] = False
+                result['errors'].append(f"Error al enviar datos a la API externa: {external_api_result.get('error', 'Error desconocido')}")
+        
+        # Incluir los datos en la respuesta
         result['ticket_data'] = ticket_data
         result['success'] = True
         
@@ -368,6 +433,69 @@ def process_complete():
         app.logger.error(traceback.format_exc())
         result['errors'].append(f"Error al procesar la solicitud: {str(e)}")
         return jsonify(result), 500
+
+@app.route('/api/send-to-external', methods=['POST'])
+def send_to_external():
+    """
+    Endpoint para enviar datos directamente a una API externa
+    
+    Recibe:
+        - data: Datos a enviar en formato JSON
+        - api_url: (opcional) URL de la API externa
+    """
+    try:
+        # Verificar si se enviaron datos
+        if not request.is_json:
+            app.logger.error("No se enviaron datos JSON")
+            return jsonify({'error': 'No se enviaron datos JSON'}), 400
+        
+        # Obtener los datos
+        data = request.json
+        
+        # Verificar si se especificó una URL diferente
+        api_url = request.args.get('api_url', app.config['EXTERNAL_API_URL'])
+        
+        # Enviar los datos a la API externa
+        app.logger.info(f"Enviando datos a API externa: {api_url}")
+        
+        # Realizar la solicitud POST a la API externa
+        response = requests.post(
+            api_url,
+            json=data,
+            headers={'Content-Type': 'application/json'},
+            timeout=10  # Timeout de 10 segundos
+        )
+        
+        # Verificar si la solicitud fue exitosa
+        if response.status_code == 200:
+            app.logger.info("Datos enviados exitosamente a la API externa")
+            return jsonify({
+                'success': True,
+                'status_code': response.status_code,
+                'response': response.json() if response.content else {}
+            })
+        else:
+            app.logger.error(f"Error al enviar datos a la API externa. Código: {response.status_code}")
+            return jsonify({
+                'success': False,
+                'status_code': response.status_code,
+                'error': response.text
+            }), response.status_code
+    
+    except requests.RequestException as e:
+        app.logger.error(f"Error de conexión con la API externa: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f"Error de conexión: {str(e)}"
+        }), 500
+    except Exception as e:
+        app.logger.error(f"Error inesperado al enviar datos: {str(e)}")
+        import traceback
+        app.logger.error(traceback.format_exc())
+        return jsonify({
+            'success': False,
+            'error': f"Error inesperado: {str(e)}"
+        }), 500
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=8080) 

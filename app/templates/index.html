@@ -149,6 +149,11 @@
                             <label class="form-check-label" for="completeUseLocation">Usar mi ubicación actual</label>
                             <div id="locationPermissionStatus" class="form-text text-muted mt-1"></div>
                         </div>
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="sendToExternalApi">
+                            <label class="form-check-label" for="sendToExternalApi">Enviar datos a API externa</label>
+                            <div class="form-text text-muted mt-1">Los datos procesados se enviarán a la API configurada</div>
+                        </div>
                         <button type="button" id="processCompleteBtn" class="btn btn-primary w-100">Procesar Información Completa</button>
                     </div>
                 </div>
@@ -481,6 +486,14 @@
         
         // Función para enviar solicitud de análisis completo
         function sendCompleteRequest(formData) {
+            // Mostrar indicador de carga
+            document.getElementById('loadingComplete').style.display = 'block';
+            
+            // Añadir parámetro para enviar a API externa si está marcado
+            const sendToExternalApi = document.getElementById('sendToExternalApi').checked;
+            formData.append('send_to_external', sendToExternalApi);
+            
+            // Enviar solicitud
             fetch('/api/process_complete', {
                 method: 'POST',
                 body: formData
@@ -488,11 +501,43 @@
             .then(response => response.json())
             .then(data => {
                 // Ocultar indicador de carga
-                loadingIndicator.style.display = 'none';
+                document.getElementById('loadingComplete').style.display = 'none';
                 
                 if (data.success) {
-                    // Mostrar resultados completos
-                    displayCompleteResults(data);
+                    // Mostrar resultados
+                    document.getElementById('completeResultContainer').style.display = 'block';
+                    
+                    // Mostrar información del incidente
+                    if (data.incident_analysis) {
+                        // Verificar si hay un error en el análisis
+                        if (data.incident_analysis.error) {
+                            console.warn("Error en el análisis del incidente:", data.incident_analysis.error);
+                            document.getElementById('ticketIncidentType').value = data.incident_analysis.incident_type || 'Error en el análisis';
+                            ticketConfidenceValueElement.textContent = `${data.incident_analysis.confidence || 0}%`;
+                            document.getElementById('ticketDamageSeverity').value = data.incident_analysis.damage_severity || 'Desconocido';
+                            document.getElementById('ticketDamagedParts').value = 'No se detectaron partes dañadas';
+                        } else {
+                            document.getElementById('ticketIncidentType').value = data.incident_analysis.incident_type || 'Desconocido';
+                            ticketConfidenceValueElement.textContent = `${data.incident_analysis.confidence || 0}%`;
+                            document.getElementById('ticketDamageSeverity').value = data.incident_analysis.damage_severity || 'Desconocido';
+                            
+                            if (data.incident_analysis.damaged_parts && data.incident_analysis.damaged_parts.length > 0) {
+                                document.getElementById('ticketDamagedParts').value = data.incident_analysis.damaged_parts.join(', ');
+                            } else {
+                                document.getElementById('ticketDamagedParts').value = 'No se detectaron partes dañadas';
+                            }
+                        }
+                    } else if (data.errors && data.errors.length > 0) {
+                        document.getElementById('ticketIncidentType').value = 'Error en el análisis';
+                        ticketConfidenceValueElement.textContent = '0%';
+                        document.getElementById('ticketDamageSeverity').value = 'No disponible';
+                        document.getElementById('ticketDamagedParts').value = data.errors.join(', ');
+                    } else {
+                        document.getElementById('ticketIncidentType').value = 'No se pudo analizar el incidente';
+                        ticketConfidenceValueElement.textContent = '0%';
+                        document.getElementById('ticketDamageSeverity').value = 'No disponible';
+                        document.getElementById('ticketDamagedParts').value = 'No se detectaron partes dañadas';
+                    }
                 } else {
                     alert('Error: ' + (data.errors.join(', ') || 'Ocurrió un error al procesar la información'));
                 }
@@ -500,7 +545,7 @@
             .catch(error => {
                 console.error('Error:', error);
                 alert('Ocurrió un error al procesar la información. Por favor intenta de nuevo.');
-                loadingIndicator.style.display = 'none';
+                document.getElementById('loadingComplete').style.display = 'none';
             });
         }
         
