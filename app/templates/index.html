@@ -149,10 +149,15 @@
                             <label class="form-check-label" for="completeUseLocation">Usar mi ubicación actual</label>
                             <div id="locationPermissionStatus" class="form-text text-muted mt-1"></div>
                         </div>
-                        <div class="mb-3 form-check">
+                        <div class="form-check mb-3">
                             <input type="checkbox" class="form-check-input" id="sendToExternalApi">
                             <label class="form-check-label" for="sendToExternalApi">Enviar datos a API externa</label>
-                            <div class="form-text text-muted mt-1">Los datos procesados se enviarán a la API configurada</div>
+                        </div>
+                        
+                        <div class="mb-3" id="externalApiUrlContainer" style="display: none;">
+                            <label for="externalApiUrl" class="form-label">URL de la API externa</label>
+                            <input type="text" class="form-control" id="externalApiUrl" placeholder="https://ejemplo.com/api/recibir-datos">
+                            <div class="form-text">Ingresa la URL completa donde se enviarán los datos procesados.</div>
                         </div>
                         <button type="button" id="processCompleteBtn" class="btn btn-primary w-100">Procesar Información Completa</button>
                     </div>
@@ -371,35 +376,29 @@
             checkLocationPermission();
         });
         
-        // Cuando el usuario marca la casilla, solicitar permiso si aún no se ha concedido
+        // Manejar cambios en el checkbox de ubicación
         completeUseLocationCheckbox.addEventListener('change', function() {
-            const locationStatusElement = document.getElementById('locationPermissionStatus');
-            
-            if (this.checked && !locationPermissionGranted) {
-                locationStatusElement.textContent = 'Solicitando acceso a la ubicación...';
+            if (this.checked) {
+                // Usuario marcó la casilla manualmente
+                locationStatusElement.textContent = 'Se solicitará acceso a la ubicación al procesar la boleta.';
                 locationStatusElement.className = 'form-text text-info mt-1';
-                
-                navigator.geolocation.getCurrentPosition(
-                    function(position) {
-                        // Permiso concedido
-                        locationPermissionGranted = true;
-                        completeUseLocationCheckbox.checked = true;
-                        locationStatusElement.textContent = 'Permiso de ubicación concedido. Se usará automáticamente.';
-                        locationStatusElement.className = 'form-text text-success mt-1';
-                    },
-                    function(error) {
-                        // Permiso denegado
-                        console.error('Error al obtener ubicación:', error);
-                        completeUseLocationCheckbox.checked = false;
-                        locationStatusElement.textContent = 'Permiso de ubicación denegado. Habilítalo en la configuración del navegador.';
-                        locationStatusElement.className = 'form-text text-danger mt-1';
-                        alert('No se pudo obtener la ubicación. Por favor habilita los permisos de ubicación en tu navegador.');
-                    }
-                );
-            } else if (!this.checked) {
+            } else {
                 // Usuario desmarcó la casilla manualmente
                 locationStatusElement.textContent = 'La ubicación no se utilizará en esta boleta.';
                 locationStatusElement.className = 'form-text text-muted mt-1';
+            }
+        });
+        
+        // Manejar cambios en el checkbox de enviar a API externa
+        const sendToExternalApiCheckbox = document.getElementById('sendToExternalApi');
+        const externalApiUrlContainer = document.getElementById('externalApiUrlContainer');
+        const externalApiUrlInput = document.getElementById('externalApiUrl');
+        
+        sendToExternalApiCheckbox.addEventListener('change', function() {
+            if (this.checked) {
+                externalApiUrlContainer.style.display = 'block';
+            } else {
+                externalApiUrlContainer.style.display = 'none';
             }
         });
         
@@ -492,6 +491,14 @@
             // Añadir parámetro para enviar a API externa si está marcado
             const sendToExternalApi = document.getElementById('sendToExternalApi').checked;
             formData.append('send_to_external', sendToExternalApi);
+            
+            // Añadir URL de la API externa si se proporciona
+            if (sendToExternalApi) {
+                const externalApiUrl = document.getElementById('externalApiUrl').value.trim();
+                if (externalApiUrl) {
+                    formData.append('external_api_url', externalApiUrl);
+                }
+            }
             
             // Enviar solicitud
             fetch('/api/process_complete', {

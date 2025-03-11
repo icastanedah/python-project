@@ -29,22 +29,25 @@ app.config['MAPS_API_KEY'] = os.environ.get('GOOGLE_MAPS_API_KEY', '')
 app.config['EXTERNAL_API_URL'] = os.environ.get('EXTERNAL_API_URL', 'http://localhost:3000/api/receive-data')
 
 # Función para enviar datos a otra aplicación
-def send_to_external_api(data):
+def send_to_external_api(data, api_url=None):
     """
     Envía los datos procesados a una API externa
     
     Args:
         data (dict): Datos a enviar
+        api_url (str, optional): URL de la API externa. Si no se proporciona, se usa la configurada.
         
     Returns:
         dict: Respuesta de la API externa o información de error
     """
     try:
-        app.logger.info(f"Enviando datos a API externa: {app.config['EXTERNAL_API_URL']}")
+        # Usar la URL proporcionada o la configurada por defecto
+        url = api_url if api_url else app.config['EXTERNAL_API_URL']
+        app.logger.info(f"Enviando datos a API externa: {url}")
         
         # Realizar la solicitud POST a la API externa
         response = requests.post(
-            app.config['EXTERNAL_API_URL'],
+            url,
             json=data,
             headers={'Content-Type': 'application/json'},
             timeout=10  # Timeout de 10 segundos
@@ -401,7 +404,16 @@ def process_complete():
         # Enviar los datos a la API externa
         if request.form.get('send_to_external', 'false').lower() == 'true':
             app.logger.info("Enviando datos a API externa")
-            external_api_result = send_to_external_api(ticket_data)
+            
+            # Usar la URL proporcionada o la configurada por defecto
+            external_api_url = request.form.get('external_api_url')
+            if external_api_url:
+                app.logger.info(f"Usando URL proporcionada: {external_api_url}")
+                external_api_result = send_to_external_api(ticket_data, external_api_url)
+            else:
+                app.logger.info(f"Usando URL configurada: {app.config['EXTERNAL_API_URL']}")
+                external_api_result = send_to_external_api(ticket_data)
+                
             result['external_api_result'] = external_api_result
             
             if external_api_result['success']:
