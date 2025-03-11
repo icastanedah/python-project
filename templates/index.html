@@ -149,16 +149,6 @@
                             <label class="form-check-label" for="completeUseLocation">Usar mi ubicación actual</label>
                             <div id="locationPermissionStatus" class="form-text text-muted mt-1"></div>
                         </div>
-                        <div class="form-check mb-3">
-                            <input type="checkbox" class="form-check-input" id="sendToExternalApi" checked>
-                            <label class="form-check-label" for="sendToExternalApi">Enviar datos a API interna de notificaciones</label>
-                        </div>
-                        
-                        <div class="mb-3" id="externalApiUrlContainer" style="display: none;">
-                            <label for="externalApiUrl" class="form-label">URL de la API (predeterminada: API interna)</label>
-                            <input type="text" class="form-control" id="externalApiUrl" placeholder="http://localhost:8081/api/angular/receive">
-                            <div class="form-text">La URL predeterminada ya está configurada para usar la API interna.</div>
-                        </div>
                         <button type="button" id="processCompleteBtn" class="btn btn-primary w-100">Procesar Información Completa</button>
                     </div>
                 </div>
@@ -376,51 +366,37 @@
             checkLocationPermission();
         });
         
-        // Manejar cambios en el checkbox de ubicación
+        // Cuando el usuario marca la casilla, solicitar permiso si aún no se ha concedido
         completeUseLocationCheckbox.addEventListener('change', function() {
-            if (this.checked) {
-                // Usuario marcó la casilla manualmente
-                locationStatusElement.textContent = 'Se solicitará acceso a la ubicación al procesar la boleta.';
+            const locationStatusElement = document.getElementById('locationPermissionStatus');
+            
+            if (this.checked && !locationPermissionGranted) {
+                locationStatusElement.textContent = 'Solicitando acceso a la ubicación...';
                 locationStatusElement.className = 'form-text text-info mt-1';
-            } else {
+                
+                navigator.geolocation.getCurrentPosition(
+                    function(position) {
+                        // Permiso concedido
+                        locationPermissionGranted = true;
+                        completeUseLocationCheckbox.checked = true;
+                        locationStatusElement.textContent = 'Permiso de ubicación concedido. Se usará automáticamente.';
+                        locationStatusElement.className = 'form-text text-success mt-1';
+                    },
+                    function(error) {
+                        // Permiso denegado
+                        console.error('Error al obtener ubicación:', error);
+                        completeUseLocationCheckbox.checked = false;
+                        locationStatusElement.textContent = 'Permiso de ubicación denegado. Habilítalo en la configuración del navegador.';
+                        locationStatusElement.className = 'form-text text-danger mt-1';
+                        alert('No se pudo obtener la ubicación. Por favor habilita los permisos de ubicación en tu navegador.');
+                    }
+                );
+            } else if (!this.checked) {
                 // Usuario desmarcó la casilla manualmente
                 locationStatusElement.textContent = 'La ubicación no se utilizará en esta boleta.';
                 locationStatusElement.className = 'form-text text-muted mt-1';
             }
         });
-        
-        // Manejar cambios en el checkbox de enviar a API externa
-        const sendToExternalApiCheckbox = document.getElementById('sendToExternalApi');
-        const externalApiUrlContainer = document.getElementById('externalApiUrlContainer');
-        const externalApiUrlInput = document.getElementById('externalApiUrl');
-        
-        // Mantener el campo de URL oculto por defecto, incluso si el checkbox está marcado
-        externalApiUrlContainer.style.display = 'none';
-        
-        sendToExternalApiCheckbox.addEventListener('change', function() {
-            // Solo mostrar el campo de URL si el usuario desmarca y vuelve a marcar el checkbox
-            // Esto permite cambiar la URL solo si es realmente necesario
-            if (this.checked && externalApiUrlContainer.style.display === 'block') {
-                // Si ya estaba visible, mantenerlo visible
-                externalApiUrlContainer.style.display = 'block';
-            } else if (!this.checked) {
-                // Si se desmarca, ocultar el campo
-                externalApiUrlContainer.style.display = 'none';
-            }
-        });
-        
-        // Agregar botón para mostrar/ocultar el campo de URL
-        const toggleUrlButton = document.createElement('button');
-        toggleUrlButton.type = 'button';
-        toggleUrlButton.className = 'btn btn-sm btn-outline-secondary mt-1';
-        toggleUrlButton.textContent = 'Cambiar URL (avanzado)';
-        toggleUrlButton.onclick = function() {
-            externalApiUrlContainer.style.display = externalApiUrlContainer.style.display === 'none' ? 'block' : 'none';
-        };
-        
-        // Insertar el botón después del checkbox
-        sendToExternalApiCheckbox.parentNode.appendChild(document.createElement('br'));
-        sendToExternalApiCheckbox.parentNode.appendChild(toggleUrlButton);
         
         // Mostrar vista previa de la imagen para análisis completo
         completeImageInput.addEventListener('change', function() {
@@ -505,22 +481,6 @@
         
         // Función para enviar solicitud de análisis completo
         function sendCompleteRequest(formData) {
-            // Mostrar indicador de carga
-            loadingIndicator.style.display = 'block';
-            
-            // Añadir parámetro para enviar a API externa si está marcado
-            const sendToExternalApi = document.getElementById('sendToExternalApi').checked;
-            formData.append('send_to_external', sendToExternalApi);
-            
-            // Añadir URL de la API externa si se proporciona
-            if (sendToExternalApi) {
-                const externalApiUrl = document.getElementById('externalApiUrl').value.trim();
-                if (externalApiUrl) {
-                    formData.append('external_api_url', externalApiUrl);
-                }
-            }
-            
-            // Enviar solicitud
             fetch('/api/process_complete', {
                 method: 'POST',
                 body: formData
@@ -531,10 +491,10 @@
                 loadingIndicator.style.display = 'none';
                 
                 if (data.success) {
-                    // Mostrar resultados
+                    // Mostrar resultados completos
                     displayCompleteResults(data);
                 } else {
-                    alert('Error: ' + (data.errors && data.errors.length > 0 ? data.errors.join(', ') : 'Ocurrió un error al procesar la información'));
+                    alert('Error: ' + (data.errors.join(', ') || 'Ocurrió un error al procesar la información'));
                 }
             })
             .catch(error => {

@@ -6,6 +6,7 @@ import json
 import datetime
 import base64
 import requests
+from app.api.angular_api import angular_api, receive_data_internal  # Importar la función interna
 
 # Cargar variables de entorno
 load_dotenv()
@@ -26,7 +27,10 @@ CORS(app)
 app.config['UPLOAD_FOLDER'] = 'static/uploads'
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max upload
 app.config['MAPS_API_KEY'] = os.environ.get('GOOGLE_MAPS_API_KEY', '')
-app.config['EXTERNAL_API_URL'] = os.environ.get('EXTERNAL_API_URL', 'http://localhost:3000/api/receive-data')
+app.config['EXTERNAL_API_URL'] = os.environ.get('EXTERNAL_API_URL', 'internal://api/angular/receive')
+
+# Registrar el Blueprint de la API para Angular
+app.register_blueprint(angular_api, url_prefix='/api/angular')
 
 # Función para enviar datos a otra aplicación
 def send_to_external_api(data, api_url=None):
@@ -45,29 +49,51 @@ def send_to_external_api(data, api_url=None):
         url = api_url if api_url else app.config['EXTERNAL_API_URL']
         app.logger.info(f"Enviando datos a API externa: {url}")
         
-        # Realizar la solicitud POST a la API externa
-        response = requests.post(
-            url,
-            json=data,
-            headers={'Content-Type': 'application/json'},
-            timeout=10  # Timeout de 10 segundos
-        )
-        
-        # Verificar si la solicitud fue exitosa
-        if response.status_code == 200:
-            app.logger.info("Datos enviados exitosamente a la API externa")
-            return {
-                'success': True,
-                'status_code': response.status_code,
-                'response': response.json() if response.content else {}
-            }
+        # Verificar si es una llamada interna
+        if url.startswith('internal://'):
+            # Extraer la ruta interna
+            internal_path = url.replace('internal://', '')
+            app.logger.info(f"Usando llamada interna a: {internal_path}")
+            
+            # Llamar directamente a la función interna
+            if internal_path == 'api/angular/receive':
+                result = receive_data_internal(data)
+                app.logger.info("Datos enviados internamente con éxito")
+                return {
+                    'success': True,
+                    'response': result
+                }
+            else:
+                app.logger.error(f"Ruta interna no reconocida: {internal_path}")
+                return {
+                    'success': False,
+                    'error': f"Ruta interna no reconocida: {internal_path}"
+                }
         else:
-            app.logger.error(f"Error al enviar datos a la API externa. Código: {response.status_code}")
-            return {
-                'success': False,
-                'status_code': response.status_code,
-                'error': response.text
-            }
+            # Realizar la solicitud POST a la API externa
+            response = requests.post(
+                url,
+                json=data,
+                headers={'Content-Type': 'application/json'},
+                timeout=10  # Timeout de 10 segundos
+            )
+            
+            # Verificar si la solicitud fue exitosa
+            if response.status_code == 200:
+                app.logger.info("Datos enviados exitosamente a la API externa")
+                return {
+                    'success': True,
+                    'status_code': response.status_code,
+                    'response': response.json() if response.content else {}
+                }
+            else:
+                app.logger.error(f"Error al enviar datos a la API externa. Código: {response.status_code}")
+                return {
+                    'success': False,
+                    'status_code': response.status_code,
+                    'error': response.text
+                }
+    
     except requests.RequestException as e:
         app.logger.error(f"Error de conexión con la API externa: {str(e)}")
         return {
@@ -76,6 +102,8 @@ def send_to_external_api(data, api_url=None):
         }
     except Exception as e:
         app.logger.error(f"Error inesperado al enviar datos: {str(e)}")
+        import traceback
+        app.logger.error(traceback.format_exc())
         return {
             'success': False,
             'error': f"Error inesperado: {str(e)}"
