@@ -1,0 +1,24 @@
+# Ignorar todo por defecto
+*
+
+# Permitir solo los archivos necesarios
+!app/**
+!api/**
+!static/**
+!templates/**
+!index.py
+!requirements.txt
+!vercel.json
+
+# Ignorar archivos específicos dentro de los directorios permitidos
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
+**/.DS_Store
+**/venv/
+**/.env
+**/.git/
+**/dataset/
+**/test_*.py
+**/train_*.py 

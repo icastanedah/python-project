@@ -4,9 +4,19 @@ from flask_cors import CORS
 from dotenv import load_dotenv
 import json
 import datetime
+import base64
 
 # Cargar variables de entorno
 load_dotenv()
+
+# Configurar credenciales de Google Cloud desde variables de entorno
+if os.environ.get('GOOGLE_CREDENTIALS_BASE64'):
+    # Decodificar las credenciales en base64 y guardarlas en un archivo temporal
+    credentials_json = base64.b64decode(os.environ.get('GOOGLE_CREDENTIALS_BASE64')).decode('utf-8')
+    credentials_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'vision-api-credentials.json')
+    with open(credentials_path, 'w') as f:
+        f.write(credentials_json)
+    os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = credentials_path
 
 app = Flask(__name__)
 CORS(app)
