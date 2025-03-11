@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Análisis de Siniestros Vehiculares</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <style>
+        body {
+            padding-top: 2rem;
+            padding-bottom: 2rem;
+            background-color: #f8f9fa;
+        }
+        .header {
+            margin-bottom: 2rem;
+            border-bottom: 1px solid #e5e5e5;
+            padding-bottom: 1rem;
+        }
+        .preview-container {
+            max-width: 100%;
+            height: 300px;
+            border: 2px dashed #ccc;
+            border-radius: 5px;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        .preview-container img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+        .result-container {
+            margin-top: 2rem;
+            display: none;
+        }
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 2rem 0;
+        }
+        .map-container {
+            height: 300px;
+            margin-top: 1rem;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        .nav-tabs {
+            margin-bottom: 1rem;
+        }
+        .tab-content {
+            padding: 1rem;
+            background-color: #fff;
+            border: 1px solid #dee2e6;
+            border-top: none;
+            border-radius: 0 0 5px 5px;
+        }
+        .registration-preview {
+            max-width: 100%;
+            height: 200px;
+            border: 2px dashed #ccc;
+            border-radius: 5px;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        .registration-preview img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+        .ticket-container {
+            margin-top: 2rem;
+            display: none;
+            background-color: #f0f8ff;
+            padding: 1rem;
+            border-radius: 5px;
+            border: 1px solid #b8daff;
+        }
+        
+        /* Estilos para campos editables */
+        .input-group .form-control[disabled] {
+            background-color: #fff;
+            opacity: 1;
+            cursor: default;
+            border-color: transparent;
+        }
+        
+        .edit-toggle {
+            min-width: 80px;
+        }
+        
+        .edit-toggle .bi {
+            margin-right: 5px;
+        }
+        
+        /* Estilos para mensajes de estado de ubicación */
+        .text-success {
+            color: #28a745 !important;
+        }
+        
+        .text-danger {
+            color: #dc3545 !important;
+        }
+        
+        .text-info {
+            color: #17a2b8 !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 class="text-center">Análisis de Siniestros Vehiculares</h1>
+            <p class="text-center text-muted">Sube imágenes del siniestro y la tarjeta de circulación para generar una boleta completa</p>
+        </div>
+
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title">Imagen del Incidente</h5>
+                        <div class="preview-container" id="completeImagePreview">
+                            <p class="text-muted">Vista previa de la imagen del incidente</p>
+                        </div>
+                        <div class="mb-3">
+                            <label for="completeImageFile" class="form-label">Selecciona una imagen del incidente</label>
+                            <input class="form-control" type="file" id="completeImageFile" accept="image/*">
+                        </div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Tarjeta de Circulación</h5>
+                        <div class="registration-preview" id="registrationPreview">
+                            <p class="text-muted">Vista previa de la tarjeta de circulación</p>
+                        </div>
+                        <div class="mb-3">
+                            <label for="registrationImageFile" class="form-label">Selecciona una imagen de la tarjeta de circulación</label>
+                            <input class="form-control" type="file" id="registrationImageFile" accept="image/*">
+                        </div>
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="completeUseLocation">
+                            <label class="form-check-label" for="completeUseLocation">Usar mi ubicación actual</label>
+                            <div id="locationPermissionStatus" class="form-text text-muted mt-1"></div>
+                        </div>
+                        <button type="button" id="processCompleteBtn" class="btn btn-primary w-100">Procesar Información Completa</button>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="ticket-container" id="ticketContainer">
+                    <h5>Información Completa para Boleta</h5>
+                    <div class="accordion" id="ticketAccordion">
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="headingIncident">
+                                <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapseIncident" aria-expanded="true" aria-controls="collapseIncident">
+                                    Información del Incidente
+                                </button>
+                            </h2>
+                            <div id="collapseIncident" class="accordion-collapse collapse show" aria-labelledby="headingIncident" data-bs-parent="#ticketAccordion">
+                                <div class="accordion-body">
+                                    <div class="mb-3">
+                                        <h6>Tipo de siniestro</h6>
+                                        <div class="input-group">
+                                            <input type="text" class="form-control" id="ticketIncidentType" value="">
+                                            <button class="btn btn-outline-secondary edit-toggle" type="button" data-target="ticketIncidentType">
+                                                <i class="bi bi-pencil"></i>Editar
+                                            </button>
+                                        </div>
+                                        <p class="small text-muted">Confianza: <span id="ticketConfidenceValue">0%</span></p>
+                                    </div>
+                                    <div class="mb-3">
+                                        <h6>Severidad del daño</h6>
+                                        <div class="input-group">
+                                            <input type="text" class="form-control" id="ticketDamageSeverity" value="">
+                                            <button class="btn btn-outline-secondary edit-toggle" type="button" data-target="ticketDamageSeverity">
+                                                <i class="bi bi-pencil"></i>Editar
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <h6>Partes dañadas</h6>
+                                        <div class="input-group">
+                                            <input type="text" class="form-control" id="ticketDamagedParts" value="">
+                                            <button class="btn btn-outline-secondary edit-toggle" type="button" data-target="ticketDamagedParts">
+                                                <i class="bi bi-pencil"></i>Editar
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="headingVehicle">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseVehicle" aria-expanded="false" aria-controls="collapseVehicle">
+                                    Información del Vehículo
+                                </button>
+                            </h2>
+                            <div id="collapseVehicle" class="accordion-collapse collapse" aria-labelledby="headingVehicle" data-bs-parent="#ticketAccordion">
+                                <div class="accordion-body">
+                                    <div class="mb-3">
+                                        <h6>Placa</h6>
+                                        <div class="input-group">
+                                            <input type="text" class="form-control" id="ticketPlaca" value="">
+                                            <button class="btn btn-outline-secondary edit-toggle" type="button" data-target="ticketPlaca">
+                                                <i class="bi bi-pencil"></i>Editar
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <h6>Propietario</h6>
+                                        <div class="input-group">
+                                            <input type="text" class="form-control" id="ticketPropietario" value="">
+                                            <button class="btn btn-outline-secondary edit-toggle" type="button" data-target="ticketPropietario">
+                                                <i class="bi bi-pencil"></i>Editar
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <h6>Marca y Modelo</h6>
+                                        <div class="input-group">
+                                            <input type="text" class="form-control" id="ticketMarcaModelo" value="">
+                                            <button class="btn btn-outline-secondary edit-toggle" type="button" data-target="ticketMarcaModelo">
+                                                <i class="bi bi-pencil"></i>Editar
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <h6>Año</h6>
+                                        <div class="input-group">
+                                            <input type="text" class="form-control" id="ticketAño" value="">
+                                            <button class="btn btn-outline-secondary edit-toggle" type="button" data-target="ticketAño">
+                                                <i class="bi bi-pencil"></i>Editar
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <h6>Color</h6>
+                                        <div class="input-group">
+                                            <input type="text" class="form-control" id="ticketColor" value="">
+                                            <button class="btn btn-outline-secondary edit-toggle" type="button" data-target="ticketColor">
+                                                <i class="bi bi-pencil"></i>Editar
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <h6>Número de Serie</h6>
+                                        <div class="input-group">
+                                            <input type="text" class="form-control" id="ticketSerie" value="">
+                                            <button class="btn btn-outline-secondary edit-toggle" type="button" data-target="ticketSerie">
+                                                <i class="bi bi-pencil"></i>Editar
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="headingLocation">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseLocation" aria-expanded="false" aria-controls="collapseLocation">
+                                    Ubicación
+                                </button>
+                            </h2>
+                            <div id="collapseLocation" class="accordion-collapse collapse" aria-labelledby="headingLocation" data-bs-parent="#ticketAccordion">
+                                <div class="accordion-body">
+                                    <p id="ticketLocationInfo"></p>
+                                    <div id="ticketMap" class="map-container"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <button type="button" id="sendTicketBtn" class="btn btn-success w-100">Enviar al Sistema de Boletas</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="loading" id="loadingIndicator">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Cargando...</span>
+            </div>
+            <p class="mt-2">Analizando imágenes, por favor espere...</p>
+        </div>
+    </div>
+
+    <script>
+        // Inicializar mapa
+        let ticketMap;
+        let ticketMarker;
+        let locationPermissionGranted = false;
+        
+        // Elementos del DOM para análisis completo
+        const completeImageInput = document.getElementById('completeImageFile');
+        const completeImagePreview = document.getElementById('completeImagePreview');
+        const registrationImageInput = document.getElementById('registrationImageFile');
+        const registrationPreview = document.getElementById('registrationPreview');
+        const completeUseLocationCheckbox = document.getElementById('completeUseLocation');
+        const processCompleteBtn = document.getElementById('processCompleteBtn');
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        const ticketContainer = document.getElementById('ticketContainer');
+        const ticketIncidentTypeElement = document.getElementById('ticketIncidentType');
+        const ticketConfidenceValueElement = document.getElementById('ticketConfidenceValue');
+        const ticketDamageSeverityElement = document.getElementById('ticketDamageSeverity');
+        const ticketDamagedPartsElement = document.getElementById('ticketDamagedParts');
+        const ticketPlacaElement = document.getElementById('ticketPlaca');
+        const ticketPropietarioElement = document.getElementById('ticketPropietario');
+        const ticketMarcaModeloElement = document.getElementById('ticketMarcaModelo');
+        const ticketAñoElement = document.getElementById('ticketAño');
+        const ticketColorElement = document.getElementById('ticketColor');
+        const ticketSerieElement = document.getElementById('ticketSerie');
+        const ticketLocationInfoElement = document.getElementById('ticketLocationInfo');
+        const sendTicketBtn = document.getElementById('sendTicketBtn');
+        
+        // Verificar si el navegador ya tiene permiso de ubicación
+        function checkLocationPermission() {
+            const locationStatusElement = document.getElementById('locationPermissionStatus');
+            
+            if (navigator.permissions && navigator.permissions.query) {
+                navigator.permissions.query({ name: 'geolocation' }).then(function(result) {
+                    if (result.state === 'granted') {
+                        locationPermissionGranted = true;
+                        completeUseLocationCheckbox.checked = true;
+                        locationStatusElement.textContent = 'Permiso de ubicación concedido. Se usará automáticamente.';
+                        locationStatusElement.classList.add('text-success');
+                    } else if (result.state === 'denied') {
+                        locationPermissionGranted = false;
+                        completeUseLocationCheckbox.checked = false;
+                        locationStatusElement.textContent = 'Permiso de ubicación denegado. Habilítalo en la configuración del navegador.';
+                        locationStatusElement.classList.add('text-danger');
+                    } else {
+                        locationStatusElement.textContent = 'Marca la casilla para permitir el acceso a tu ubicación.';
+                    }
+                    
+                    // Escuchar cambios en el permiso
+                    result.onchange = function() {
+                        locationPermissionGranted = (result.state === 'granted');
+                        completeUseLocationCheckbox.checked = locationPermissionGranted;
+                        
+                        if (result.state === 'granted') {
+                            locationStatusElement.textContent = 'Permiso de ubicación concedido. Se usará automáticamente.';
+                            locationStatusElement.className = 'form-text text-success mt-1';
+                        } else if (result.state === 'denied') {
+                            locationStatusElement.textContent = 'Permiso de ubicación denegado. Habilítalo en la configuración del navegador.';
+                            locationStatusElement.className = 'form-text text-danger mt-1';
+                        } else {
+                            locationStatusElement.textContent = 'Marca la casilla para permitir el acceso a tu ubicación.';
+                            locationStatusElement.className = 'form-text text-muted mt-1';
+                        }
+                    };
+                });
+            } else {
+                // Para navegadores que no soportan la API de permisos
+                locationStatusElement.textContent = 'Marca la casilla para permitir el acceso a tu ubicación.';
+            }
+        }
+        
+        // Verificar permisos al cargar la página
+        document.addEventListener('DOMContentLoaded', function() {
+            checkLocationPermission();
+        });
+        
+        // Cuando el usuario marca la casilla, solicitar permiso si aún no se ha concedido
+        completeUseLocationCheckbox.addEventListener('change', function() {
+            const locationStatusElement = document.getElementById('locationPermissionStatus');
+            
+            if (this.checked && !locationPermissionGranted) {
+                locationStatusElement.textContent = 'Solicitando acceso a la ubicación...';
+                locationStatusElement.className = 'form-text text-info mt-1';
+                
+                navigator.geolocation.getCurrentPosition(
+                    function(position) {
+                        // Permiso concedido
+                        locationPermissionGranted = true;
+                        completeUseLocationCheckbox.checked = true;
+                        locationStatusElement.textContent = 'Permiso de ubicación concedido. Se usará automáticamente.';
+                        locationStatusElement.className = 'form-text text-success mt-1';
+                    },
+                    function(error) {
+                        // Permiso denegado
+                        console.error('Error al obtener ubicación:', error);
+                        completeUseLocationCheckbox.checked = false;
+                        locationStatusElement.textContent = 'Permiso de ubicación denegado. Habilítalo en la configuración del navegador.';
+                        locationStatusElement.className = 'form-text text-danger mt-1';
+                        alert('No se pudo obtener la ubicación. Por favor habilita los permisos de ubicación en tu navegador.');
+                    }
+                );
+            } else if (!this.checked) {
+                // Usuario desmarcó la casilla manualmente
+                locationStatusElement.textContent = 'La ubicación no se utilizará en esta boleta.';
+                locationStatusElement.className = 'form-text text-muted mt-1';
+            }
+        });
+        
+        // Mostrar vista previa de la imagen para análisis completo
+        completeImageInput.addEventListener('change', function() {
+            const file = this.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    completeImagePreview.innerHTML = `<img src="${e.target.result}" alt="Vista previa del incidente">`;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+        
+        // Mostrar vista previa de la tarjeta de circulación
+        registrationImageInput.addEventListener('change', function() {
+            const file = this.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    registrationPreview.innerHTML = `<img src="${e.target.result}" alt="Vista previa de tarjeta">`;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+        
+        // Manejar clic en el botón de procesar información completa
+        processCompleteBtn.addEventListener('click', function() {
+            const incidentFile = completeImageInput.files[0];
+            if (!incidentFile) {
+                alert('Por favor selecciona una imagen del incidente');
+                return;
+            }
+            
+            // Mostrar indicador de carga
+            loadingIndicator.style.display = 'block';
+            ticketContainer.style.display = 'none';
+            
+            // Crear FormData
+            const formData = new FormData();
+            formData.append('incident_image', incidentFile);
+            
+            // Añadir imagen de tarjeta de circulación si está disponible
+            const registrationFile = registrationImageInput.files[0];
+            if (registrationFile) {
+                formData.append('registration_image', registrationFile);
+            }
+            
+            // Añadir ubicación si está habilitada o si ya tenemos permiso
+            if (completeUseLocationCheckbox.checked || locationPermissionGranted) {
+                navigator.geolocation.getCurrentPosition(
+                    function(position) {
+                        formData.append('latitude', position.coords.latitude);
+                        formData.append('longitude', position.coords.longitude);
+                        
+                        // Si el permiso fue concedido, actualizar el estado
+                        locationPermissionGranted = true;
+                        completeUseLocationCheckbox.checked = true;
+                        
+                        // Enviar solicitud
+                        sendCompleteRequest(formData);
+                    },
+                    function(error) {
+                        console.error('Error al obtener ubicación:', error);
+                        
+                        // Si el error es por permiso denegado, actualizar el estado
+                        if (error.code === error.PERMISSION_DENIED) {
+                            locationPermissionGranted = false;
+                            completeUseLocationCheckbox.checked = false;
+                        }
+                        
+                        alert('No se pudo obtener la ubicación. La boleta se generará sin información de ubicación.');
+                        
+                        // Enviar solicitud sin ubicación
+                        sendCompleteRequest(formData);
+                    }
+                );
+            } else {
+                // Enviar solicitud sin ubicación
+                sendCompleteRequest(formData);
+            }
+        });
+        
+        // Función para enviar solicitud de análisis completo
+        function sendCompleteRequest(formData) {
+            fetch('/api/process_complete', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Ocultar indicador de carga
+                loadingIndicator.style.display = 'none';
+                
+                if (data.success) {
+                    // Mostrar resultados completos
+                    displayCompleteResults(data);
+                } else {
+                    alert('Error: ' + (data.errors.join(', ') || 'Ocurrió un error al procesar la información'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Ocurrió un error al procesar la información. Por favor intenta de nuevo.');
+                loadingIndicator.style.display = 'none';
+            });
+        }
+        
+        // Función para mostrar resultados del análisis completo
+        function displayCompleteResults(data) {
+            console.log("Datos recibidos:", data); // Para depuración
+            
+            // Mostrar contenedor de ticket
+            ticketContainer.style.display = 'block';
+            
+            // Mostrar información del incidente
+            if (data.incident_analysis) {
+                // Verificar si hay un error en el análisis
+                if (data.incident_analysis.error) {
+                    console.warn("Error en el análisis del incidente:", data.incident_analysis.error);
+                    document.getElementById('ticketIncidentType').value = data.incident_analysis.incident_type || 'Error en el análisis';
+                    ticketConfidenceValueElement.textContent = `${data.incident_analysis.confidence || 0}%`;
+                    document.getElementById('ticketDamageSeverity').value = data.incident_analysis.damage_severity || 'Desconocido';
+                    document.getElementById('ticketDamagedParts').value = 'No se detectaron partes dañadas';
+                } else {
+                    document.getElementById('ticketIncidentType').value = data.incident_analysis.incident_type || 'Desconocido';
+                    ticketConfidenceValueElement.textContent = `${data.incident_analysis.confidence || 0}%`;
+                    document.getElementById('ticketDamageSeverity').value = data.incident_analysis.damage_severity || 'Desconocido';
+                    
+                    if (data.incident_analysis.damaged_parts && data.incident_analysis.damaged_parts.length > 0) {
+                        document.getElementById('ticketDamagedParts').value = data.incident_analysis.damaged_parts.join(', ');
+                    } else {
+                        document.getElementById('ticketDamagedParts').value = 'No se detectaron partes dañadas';
+                    }
+                }
+            } else if (data.errors && data.errors.length > 0) {
+                document.getElementById('ticketIncidentType').value = 'Error en el análisis';
+                ticketConfidenceValueElement.textContent = '0%';
+                document.getElementById('ticketDamageSeverity').value = 'No disponible';
+                document.getElementById('ticketDamagedParts').value = data.errors.join(', ');
+            } else {
+                document.getElementById('ticketIncidentType').value = 'No se pudo analizar el incidente';
+                ticketConfidenceValueElement.textContent = '0%';
+                document.getElementById('ticketDamageSeverity').value = 'No disponible';
+                document.getElementById('ticketDamagedParts').value = 'No se detectaron partes dañadas';
+            }
+            
+            // Mostrar información del vehículo
+            if (data.registration_info) {
+                document.getElementById('ticketPlaca').value = data.registration_info.placa || 'No disponible';
+                document.getElementById('ticketPropietario').value = data.registration_info.nombre_propietario || 'No disponible';
+                
+                let marcaModelo = '';
+                if (data.registration_info.marca) {
+                    marcaModelo += data.registration_info.marca;
+                }
+                if (data.registration_info.modelo) {
+                    marcaModelo += (marcaModelo ? ' ' : '') + data.registration_info.modelo;
+                }
+                document.getElementById('ticketMarcaModelo').value = marcaModelo || 'No disponible';
+                
+                document.getElementById('ticketAño').value = data.registration_info.año || 'No disponible';
+                document.getElementById('ticketColor').value = data.registration_info.color || 'No disponible';
+                document.getElementById('ticketSerie').value = data.registration_info.num_serie || 'No disponible';
+            } else {
+                document.getElementById('ticketPlaca').value = 'No disponible';
+                document.getElementById('ticketPropietario').value = 'No disponible';
+                document.getElementById('ticketMarcaModelo').value = 'No disponible';
+                document.getElementById('ticketAño').value = 'No disponible';
+                document.getElementById('ticketColor').value = 'No disponible';
+                document.getElementById('ticketSerie').value = 'No disponible';
+            }
+            
+            // Mostrar información de ubicación
+            if (data.location_info && !data.location_info.error) {
+                let locationText = '';
+                if (data.location_info.address) {
+                    locationText += data.location_info.address;
+                }
+                if (data.location_info.city && data.location_info.city !== 'No disponible') {
+                    locationText += (locationText ? ', ' : '') + data.location_info.city;
+                }
+                if (data.location_info.country && data.location_info.country !== 'No disponible') {
+                    locationText += (locationText ? ', ' : '') + data.location_info.country;
+                }
+                
+                ticketLocationInfoElement.textContent = locationText || 'Ubicación no disponible';
+                
+                // Inicializar mapa si hay coordenadas
+                if (data.location_info.coordinates && data.location_info.coordinates.latitude && data.location_info.coordinates.longitude) {
+                    const lat = parseFloat(data.location_info.coordinates.latitude);
+                    const lng = parseFloat(data.location_info.coordinates.longitude);
+                    
+                    // Esperar a que la API de Google Maps esté cargada
+                    function initTicketMap() {
+                        if (window.google && window.google.maps) {
+                            if (!ticketMap) {
+                                ticketMap = new google.maps.Map(document.getElementById('ticketMap'), {
+                                    center: { lat, lng },
+                                    zoom: 15
+                                });
+                            } else {
+                                ticketMap.setCenter({ lat, lng });
+                            }
+                            
+                            if (ticketMarker) {
+                                ticketMarker.setMap(null);
+                            }
+                            
+                            ticketMarker = new google.maps.Marker({
+                                position: { lat, lng },
+                                map: ticketMap,
+                                title: 'Ubicación del siniestro'
+                            });
+                        } else {
+                            // Si la API aún no está cargada, intentar de nuevo en 500ms
+                            setTimeout(initTicketMap, 500);
+                        }
+                    }
+                    
+                    initTicketMap();
+                }
+            } else {
+                let errorMsg = 'Ubicación no disponible';
+                if (data.location_info && data.location_info.error) {
+                    errorMsg += ` (${data.location_info.error})`;
+                }
+                ticketLocationInfoElement.textContent = errorMsg;
+            }
+            
+            // Configurar botón de envío al sistema de boletas
+            sendTicketBtn.addEventListener('click', function() {
+                // Recopilar todos los datos editados
+                const ticketData = {
+                    incident: {
+                        incident_type: document.getElementById('ticketIncidentType').value,
+                        damage_severity: document.getElementById('ticketDamageSeverity').value,
+                        damaged_parts: document.getElementById('ticketDamagedParts').value.split(',').map(part => part.trim()),
+                        confidence: parseFloat(ticketConfidenceValueElement.textContent) || 0
+                    },
+                    vehicle: {
+                        placa: document.getElementById('ticketPlaca').value,
+                        nombre_propietario: document.getElementById('ticketPropietario').value,
+                        marca_modelo: document.getElementById('ticketMarcaModelo').value,
+                        año: document.getElementById('ticketAño').value,
+                        color: document.getElementById('ticketColor').value,
+                        num_serie: document.getElementById('ticketSerie').value
+                    },
+                    location: data.location_info,
+                    timestamp: new Date().toISOString()
+                };
+                
+                console.log("Datos de boleta a enviar:", ticketData);
+                alert('La información ha sido enviada al sistema de boletas.');
+                // Aquí se podría implementar la lógica para enviar la información a otro sistema
+            });
+            
+            // Habilitar todos los campos para edición
+            document.querySelectorAll('.edit-toggle').forEach(button => {
+                const targetId = button.getAttribute('data-target');
+                const inputField = document.getElementById(targetId);
+                
+                // Inicialmente deshabilitar los campos
+                inputField.disabled = true;
+                
+                // Añadir evento de clic para habilitar/deshabilitar la edición
+                button.addEventListener('click', function() {
+                    if (inputField.disabled) {
+                        // Habilitar edición
+                        inputField.disabled = false;
+                        inputField.focus();
+                        button.innerHTML = '<i class="bi bi-check"></i>Guardar';
+                        button.classList.remove('btn-outline-secondary');
+                        button.classList.add('btn-outline-success');
+                    } else {
+                        // Deshabilitar edición
+                        inputField.disabled = true;
+                        button.innerHTML = '<i class="bi bi-pencil"></i>Editar';
+                        button.classList.remove('btn-outline-success');
+                        button.classList.add('btn-outline-secondary');
+                    }
+                });
+            });
+        }
+    </script>
+    
+    <!-- Google Maps JavaScript API -->
+    <script async defer src="https://maps.googleapis.com/maps/api/js?key={{maps_api_key}}&loading=async"></script>
+    
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html> 

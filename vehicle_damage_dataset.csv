@@ -1,0 +1,5 @@
+GCS_FILE_PATH,LABEL
+gs://vehicle-damage-dataset-bucket/vehicle_damage_dataset/bateria/ejemplo1.webp,Fallo mecánico - Batería
+gs://vehicle-damage-dataset-bucket/vehicle_damage_dataset/bateria/ejemplo1.jpg,Fallo mecánico - Batería
+gs://vehicle-damage-dataset-bucket/vehicle_damage_dataset/llanta/ejemplo2.jpg,Fallo mecánico - Llanta pinchada
+gs://vehicle-damage-dataset-bucket/vehicle_damage_dataset/llanta/ejemplo1.jpg,Fallo mecánico - Llanta pinchada
