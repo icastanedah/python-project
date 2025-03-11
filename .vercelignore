@@ -10,15 +10,17 @@
 !requirements.txt
 !vercel.json
 
-# Ignorar archivos específicos dentro de los directorios permitidos
-**/__pycache__/
-**/*.pyc
-**/*.pyo
-**/*.pyd
-**/.DS_Store
-**/venv/
-**/.env
-**/.git/
-**/dataset/
-**/test_*.py
-**/train_*.py 
+# Ignorar archivos específicos
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.DS_Store
+venv/
+.env
+.git/
+dataset/
+test_*.py
+train_*.py
+prepare_dataset.py
+.vercel/ 
