@@ -34,9 +34,15 @@ def analyze():
         - use_custom_model: booleano para usar el modelo personalizado (opcional)
     """
     # Importar módulos solo cuando se necesiten
-    from app.api.vision_api import analyze_image
-    from app.api.maps_api import get_location_info
-    from app.utils.image_utils import save_uploaded_image, allowed_file
+    try:
+        from app.api.vision_api import analyze_image
+        from app.api.maps_api import get_location_info
+        from app.utils.image_utils import save_uploaded_image, allowed_file
+    except ImportError:
+        # Si estamos ejecutando desde dentro del directorio app
+        from api.vision_api import analyze_image
+        from api.maps_api import get_location_info
+        from utils.image_utils import save_uploaded_image, allowed_file
     
     # Verificar si se envió una imagen
     if 'image' not in request.files:
@@ -165,9 +171,15 @@ def process_complete():
         - registration_data: datos de la tarjeta de circulación en formato JSON (opcional, alternativa a registration_image)
     """
     # Importar módulos solo cuando se necesiten
-    from app.api.vision_api import analyze_image
-    from app.api.maps_api import get_location_info
-    from app.utils.image_utils import save_uploaded_image, allowed_file
+    try:
+        from app.api.vision_api import analyze_image
+        from app.api.maps_api import get_location_info
+        from app.utils.image_utils import save_uploaded_image, allowed_file
+    except ImportError:
+        # Si estamos ejecutando desde dentro del directorio app
+        from api.vision_api import analyze_image
+        from api.maps_api import get_location_info
+        from utils.image_utils import save_uploaded_image, allowed_file
     import json
     
     result = {
@@ -348,4 +360,4 @@ def process_complete():
         return jsonify(result), 500
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=int(os.environ.get('PORT', 5000))) 
+    app.run(debug=True, host='0.0.0.0', port=8080) 
